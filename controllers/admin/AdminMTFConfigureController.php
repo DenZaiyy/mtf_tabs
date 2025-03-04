@@ -19,15 +19,16 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
-class AdminMTFDashboardController extends ModuleAdminController
+class AdminMTFConfigureController extends ModuleAdminController
 {
     public function __construct()
     {
         $this->bootstrap = true;
+        $this->display = 'view';
 
         parent::__construct();
 
-        $this->meta_title = $this->l('MTF Modules Dashboard');
+        $this->meta_title = $this->l('MTF Configure');
 
         // Remove default actions
         $this->actions = [];
@@ -44,14 +45,14 @@ class AdminMTFDashboardController extends ModuleAdminController
     }
 
     /**
-     * Simpler approach to render the dashboard once
+     * Initialize the content
      */
     public function initContent()
     {
         // Call parent init to setup the page properly
         parent::initContent();
 
-        // Get all modules that have registered tabs under the MTF parent
+        // Get all MTF modules
         $mtfModules = $this->getMTFModules();
 
         // Assign template variables
@@ -62,7 +63,7 @@ class AdminMTFDashboardController extends ModuleAdminController
 
         // Use the fetch method directly to get the template content
         $content = $this->context->smarty->fetch(
-            $this->module->getLocalPath() . 'views/templates/admin/dashboard.tpl'
+            $this->module->getLocalPath() . 'views/templates/admin/configure.tpl'
         );
 
         // Replace the entire page content with our template
@@ -70,36 +71,31 @@ class AdminMTFDashboardController extends ModuleAdminController
     }
 
     /**
-     * Get all modules that have registered tabs under the MTF parent
+     * Get all MTF modules 
      */
     private function getMTFModules()
     {
         $modules = [];
 
         try {
-            // Get the parent tab ID using TabRepository service
+            // Get the configure tab ID using TabRepository service
             $tabRepository = $this->get('prestashop.core.admin.tab.repository');
-            $parentTab = $tabRepository->findOneByClassName('AdminMTFConfigure');
+            $configureTab = $tabRepository->findOneByClassName('AdminMTFConfigure');
 
-            if (!$parentTab) {
+            if (!$configureTab) {
                 return $modules;
             }
 
             // Get all tabs
             $allTabs = Tab::getTabs($this->context->language->id);
-            $parentTabId = $parentTab->getId();
+            $configureTabId = $configureTab->getId();
 
-            // Filter tabs by parent ID
-            $childTabs = array_filter($allTabs, function ($tab) use ($parentTabId) {
-                return (int)$tab['id_parent'] === (int)$parentTabId;
+            // Filter tabs by parent ID (configure tab)
+            $childTabs = array_filter($allTabs, function ($tab) use ($configureTabId) {
+                return (int)$tab['id_parent'] === (int)$configureTabId;
             });
 
             foreach ($childTabs as $tab) {
-                // Skip the dashboard tab itself
-                if ($tab['class_name'] == 'AdminMTFDashboard') {
-                    continue;
-                }
-
                 // Only include tabs that are associated with a module
                 $moduleName = $tab['module'];
                 if (!empty($moduleName)) {

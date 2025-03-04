@@ -82,29 +82,36 @@
                         <pre class="code-example">
 public function installTab()
 {
-    // First check if MTF Modules tab exists
-    $tabRepository = $this->get('prestashop.core.admin.tab.repository');
-    $tabId = null;
+    // First check if mtf_tabs module exists and is installed
+    if (!Module::isInstalled('mtf_tabs')) {
+        // Fallback to IMPROVE tab
+        $tabRepository = $this->get('prestashop.core.admin.tab.repository');
+        $improveTab = $tabRepository->findOneByClassName('IMPROVE');
+        $parentId = $improveTab ? $improveTab->getId() : 0;
+    } else {
+        // Instancier le module mtf_tabs pour accéder à ses méthodes
+        $mtfTabsModule = Module::getInstanceByName('mtf_tabs');
 
-    try {
-        $tabParent = $tabRepository->findOneByClassName('AdminMTFModules');
-        if ($tabParent) {
-            $tabId = $tabParent->getId();
-        }
-    } catch (Exception $e) {
-        // Parent tab not found
-    }
+        // Vérifier si la classe est disponible avant d'essayer d'utiliser ses méthodes
+        if (method_exists('Mtf_Tabs', 'getConfigureTabId')) {
+            $configureId = Mtf_Tabs::getConfigureTabId();
 
-    // If parent tab not found, place under Improve
-    if (!$tabId) {
-        try {
-            $tabParent = $tabRepository->findOneByClassName('IMPROVE');
-            if ($tabParent) {
-                $tabId = $tabParent->getId();
+            if (!$configureId && method_exists('Mtf_Tabs', 'getParentTabId')) {
+                $configureId = Mtf_Tabs::getParentTabId();
             }
-        } catch (Exception $e) {
-            // Fallback to root
-            $tabId = 0;
+
+            $parentId = $configureId ?: 0;
+        } else {
+            // Fallback: récupérer directement l'ID depuis la base de données
+            $sql = 'SELECT id_tab FROM ' . _DB_PREFIX_ . 'tab WHERE class_name = "AdminMTFConfigure"';
+            $configureId = Db::getInstance()->getValue($sql);
+
+            if (!$configureId) {
+                $sql = 'SELECT id_tab FROM ' . _DB_PREFIX_ . 'tab WHERE class_name = "AdminMTFModules"';
+                $configureId = Db::getInstance()->getValue($sql);
+            }
+
+            $parentId = $configureId ?: 0;
         }
     }
 
@@ -117,27 +124,30 @@ public function installTab()
         $tab->name[$lang['id_lang']] = 'Your Module Name';
     }
 
-    $tab->id_parent = $tabId;
+    $tab->id_parent = $parentId;
     $tab->module = $this->name;
 
     return $tab->add();
 }
 
+/**
+* Uninstall Tab
+*/
 public function uninstallTab()
 {
-    $tabRepository = $this->get('prestashop.core.admin.tab.repository');
+   $tabRepository = $this->get('prestashop.core.admin.tab.repository');
 
-    try {
-        $tab = $tabRepository->findOneByClassName('AdminYourModuleName');
-        if ($tab) {
-            $tabPS = new Tab($tab->getId());
-            return $tabPS->delete();
-        }
-    } catch (Exception $e) {
-        // Tab not found, nothing to delete
-    }
+   try {
+       $tab = $tabRepository->findOneByClassName('AdminYourModuleName');
+       if ($tab) {
+           $tabPS = new Tab($tab->getId());
+           return $tabPS->delete();
+       }
+   } catch (Exception $e) {
+       // Tab not found, nothing to delete
+   }
 
-    return true;
+   return true;
 }
                         </pre>
                     </div>
